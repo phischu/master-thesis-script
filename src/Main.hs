@@ -18,10 +18,14 @@ main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
     let packages = pruneIndex packagesThatMightComeWithGHC allpackages
-    flip Map.traverseWithKey packages (\packagename versionnumbers -> do
-        forM versionnumbers (\versionnumber -> do
-            putStrLn (packagename ++ "-" ++ showVersion versionnumber)))
+    forPackages packages (\packagename versionnumber -> do
+        putStrLn (packagename ++ "-" ++ showVersion versionnumber))
     return ()
+
+forPackages :: Index -> (PackageName -> VersionNumber -> IO a) -> IO (Map PackageName [a])
+forPackages packages action = do
+    flip Map.traverseWithKey packages (\packagename versionnumbers -> do
+        forM versionnumbers (\versionnumber -> action packagename versionnumber))
 
 type PackageName   = String
 type VersionNumber = Version
