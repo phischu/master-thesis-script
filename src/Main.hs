@@ -17,10 +17,14 @@ import qualified Data.Map as Map (
 main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
-    let packages = pruneIndex packagesThatMightBeInThePlatform allpackages
+    let packages = pruneIndex fewPackages allpackages
     forPackages packages (\packagename versionnumber -> do
         let packagequalifier = packagename ++ "-" ++ showVersion versionnumber
-        rawSystem "cabal" ["install","--reinstall","--force-reinstalls","--user","--haskell-suite","-w","hs-gen-iface",packagequalifier])
+        rawSystem "cabal" [
+            "install","--reinstall","--force-reinstalls",
+            "--user","--gcc-option=\"-I/usr/lib/ghc/include\"",
+            "--haskell-suite","-w","hs-gen-iface",
+            packagequalifier])
     return ()
 
 forPackages :: Index -> (PackageName -> VersionNumber -> IO a) -> IO (Map PackageName [a])
@@ -50,7 +54,7 @@ pruneIndex :: [PackageName] -> Index -> Index
 pruneIndex packagenames = Map.filterWithKey (\key _ -> key `elem` packagenames)
 
 fewPackages :: [PackageName]
-fewPackages = ["deepseq"]
+fewPackages = ["Cabal"]
 
 packagesThatMightComeWithGHC :: [PackageName]
 packagesThatMightComeWithGHC = [
