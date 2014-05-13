@@ -65,6 +65,16 @@ packagesThatMightComeWithGHC = [
 disregardedPackages :: [PackageName]
 disregardedPackages = ["Cabal","Win32","syb","old-time"]
 
+manyReverseDependenciesPackages :: [PackageName]
+manyReverseDependenciesPackages = [
+    "base","containers","bytestring","mtl","directory","text","transformers",
+    "filepath","time","array","QuickCheck","process","network","parsec",
+    "random","HUnit","template-haskell","vector","binary","test-framework",
+    "deepseq","utf8-string","unix","old-locale","aeson","attoparsec","pretty",
+    "stm","test-framework-hunit","test-framework-quickcheck2",
+    "unordered-containers","ghc-prim","hspec","old-time","data-default",
+    "haskell98","split","syb","conduit","http-types"]
+
 packagesThatMightBeInThePlatform :: [PackageName]
 packagesThatMightBeInThePlatform = packagesThatMightComeWithGHC ++ [
     "async","attoparsec","case-insensitive","cgi","fgl","GLUT","GLURaw",
