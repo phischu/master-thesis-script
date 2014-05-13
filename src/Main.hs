@@ -17,7 +17,7 @@ import qualified Data.Map as Map (
 main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
-    let packages = pruneIndex packagesThatMightBeInThePlatform allpackages
+    let packages = pruneIndex manyReverseDependenciesPackages allpackages
     forPackages packages (\packagename versionnumber -> do
         let packagequalifier = packagename ++ "-" ++ showVersion versionnumber
         rawSystem "cabal" [
@@ -67,12 +67,12 @@ disregardedPackages = ["Cabal","Win32","syb","old-time"]
 
 manyReverseDependenciesPackages :: [PackageName]
 manyReverseDependenciesPackages = [
-    "base","containers","bytestring","mtl","directory","text","transformers",
-    "filepath","time","array","QuickCheck","process","network","parsec",
+    "containers","bytestring","mtl","directory","text","transformers",
+    "filepath","time","QuickCheck","process","network","parsec",
     "random","HUnit","template-haskell","vector","binary","test-framework",
     "deepseq","utf8-string","unix","old-locale","aeson","attoparsec","pretty",
     "stm","test-framework-hunit","test-framework-quickcheck2",
-    "unordered-containers","ghc-prim","hspec","old-time","data-default",
+    "unordered-containers","hspec","old-time","data-default",
     "haskell98","split","syb","conduit","http-types"]
 
 packagesThatMightBeInThePlatform :: [PackageName]
