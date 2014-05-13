@@ -17,12 +17,12 @@ import qualified Data.Map as Map (
 main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
-    let packages = pruneIndex fewPackages allpackages
+    let packages = pruneIndex packagesThatMightComeWithGHC allpackages
     forPackages packages (\packagename versionnumber -> do
         let packagequalifier = packagename ++ "-" ++ showVersion versionnumber
         rawSystem "cabal" [
             "install","--reinstall","--force-reinstalls",
-            "--user","--gcc-option=\"-I/usr/lib/ghc/include\"",
+            "--user","--gcc-option=-I/usr/lib/ghc/include",
             "--haskell-suite","-w","hs-gen-iface",
             packagequalifier])
     return ()
@@ -54,17 +54,17 @@ pruneIndex :: [PackageName] -> Index -> Index
 pruneIndex packagenames = Map.filterWithKey (\key _ -> key `elem` packagenames)
 
 fewPackages :: [PackageName]
-fewPackages = ["Cabal"]
+fewPackages = ["bytestring"]
 
 packagesThatMightComeWithGHC :: [PackageName]
 packagesThatMightComeWithGHC = [
-    "bytestring","Cabal","containers","deepseq","directory","filepath",
+    "bytestring","containers","deepseq","directory","filepath",
     "haskell2010","haskell98","hpc","old-locale","old-time","pretty","process",
     "syb","template-haskell","time","unix","Win32"]
 
 packagesThatMightBeInThePlatform :: [PackageName]
 packagesThatMightBeInThePlatform = packagesThatMightComeWithGHC ++ [
-    "async","attoparsec","case-insensitive","cgi","fgl","GLUT","GLURaw",
+    "async","attoparsec","case-insensitive","Cabal","cgi","fgl","GLUT","GLURaw",
     "hashable","haskell-src","html","HTTP","HUnit","mtl","network","OpenGL",
     "OpenGLRaw","parallel","parsec","QuickCheck","random","regex-base",
     "regex-compat","regex-posix","split","stm","syb","text","transformers",
