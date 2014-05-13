@@ -17,15 +17,27 @@ import qualified Data.Map as Map (
 main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
-    let packages = pruneIndex manyReverseDependenciesPackages allpackages
-    forPackages packages (\packagename versionnumber -> do
-        let packagequalifier = packagename ++ "-" ++ showVersion versionnumber
-        rawSystem "cabal" [
-            "install","--reinstall","--force-reinstalls",
-            "--user","--gcc-option=-I/usr/lib/ghc/include",
-            "--haskell-suite","-w","hs-gen-iface",
-            packagequalifier])
-    return ()
+    let packages = pruneIndex fewPackages allpackages
+    resolveNames packages
+    extractDeclarations packages
+
+resolveNames :: Index -> IO ()
+resolveNames packages = forPackages packages (\packagename versionnumber -> do
+    let packagequalifier = packagename ++ "-" ++ showVersion versionnumber
+    rawSystem "cabal" [
+        "install","--reinstall","--force-reinstalls",
+        "--user","--gcc-option=-I/usr/lib/ghc/include",
+        "--haskell-suite","-w","hs-gen-iface",
+        packagequalifier]) >> return ()
+
+extractDeclarations :: Index -> IO ()
+extractDeclarations packages = forPackages packages (\packagename versionnumber -> do
+    let packagequalifier = packagename ++ "-" ++ showVersion versionnumber
+    rawSystem "cabal" [
+        "install","--reinstall","--force-reinstalls",
+        "--user","--gcc-option=-I/usr/lib/ghc/include",
+        "--haskell-suite","-w","haskell-declarations",
+        packagequalifier]) >> return ()
 
 forPackages :: Index -> (PackageName -> VersionNumber -> IO a) -> IO (Map PackageName [a])
 forPackages packages action = do
@@ -54,7 +66,7 @@ pruneIndex :: [PackageName] -> Index -> Index
 pruneIndex packagenames = Map.filterWithKey (\key _ -> key `elem` packagenames)
 
 fewPackages :: [PackageName]
-fewPackages = ["bytestring"]
+fewPackages = ["containers"]
 
 packagesThatMightComeWithGHC :: [PackageName]
 packagesThatMightComeWithGHC = [
