@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import Data.Version (showVersion,Version)
@@ -5,6 +6,9 @@ import Data.Version (showVersion,Version)
 import Distribution.Hackage.DB (readHackage')
 
 import Distribution.PackageDescription (GenericPackageDescription)
+
+import Data.Aeson (ToJSON(toJSON),object,(.=))
+import Distribution.Text (display)
 
 import System.Directory (
     doesFileExist,createDirectoryIfMissing)
@@ -48,6 +52,7 @@ forPackages packages action = do
         flip Map.traverseWithKey packageversions (\packageversion packageinformation -> do
             action packagename packageversion packageinformation))
 
+data Package = Package PackageName PackageVersion [Dependency]
 type PackageName   = String
 type PackageVersion = Version
 type DependencyName = PackageName
@@ -73,6 +78,15 @@ packageDependencies = undefined
 
 saveDependencies :: Index [Dependency] -> IO ()
 saveDependencies = undefined
+
+instance ToJSON Package where
+    toJSON (Package packagename packageversion dependencies) = object [
+        "packagename" .= packagename,
+        "packageversion" .= display packageversion,
+        "dependencies" .= dependencies]
+
+instance ToJSON Dependency where
+    toJSON _ = undefined
 
 pruneIndex :: [PackageName] -> Index a -> Index a
 pruneIndex packagenames = Map.filterWithKey (\key _ -> key `elem` packagenames)
