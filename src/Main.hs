@@ -4,6 +4,8 @@ import Data.Version (showVersion,Version)
 
 import Distribution.Hackage.DB (readHackage')
 
+import Distribution.PackageDescription (GenericPackageDescription)
+
 import System.Directory (
     doesFileExist,createDirectoryIfMissing)
 import System.Process (rawSystem)
@@ -18,37 +20,42 @@ main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
     let packages = pruneIndex fewPackages allpackages
+    saveDependencies (Map.map (Map.map packageDependencies) packages)
     resolveNames packages
     extractDeclarations packages
 
-resolveNames :: Index -> IO ()
-resolveNames packages = forPackages packages (\packagename versionnumber -> do
-    let packagequalifier = packagename ++ "-" ++ showVersion versionnumber
+resolveNames :: Index a -> IO ()
+resolveNames packages = forPackages packages (\packagename packageversion _ -> do
+    let packagequalifier = packagename ++ "-" ++ showVersion packageversion
     rawSystem "cabal" [
         "install","--reinstall","--force-reinstalls",
         "--user","--gcc-option=-I/usr/lib/ghc/include",
         "--haskell-suite","-w","hs-gen-iface",
         packagequalifier]) >> return ()
 
-extractDeclarations :: Index -> IO ()
-extractDeclarations packages = forPackages packages (\packagename versionnumber -> do
-    let packagequalifier = packagename ++ "-" ++ showVersion versionnumber
+extractDeclarations :: Index a -> IO ()
+extractDeclarations packages = forPackages packages (\packagename packageversion _ -> do
+    let packagequalifier = packagename ++ "-" ++ showVersion packageversion
     rawSystem "cabal" [
         "install","--reinstall","--force-reinstalls",
         "--user","--gcc-option=-I/usr/lib/ghc/include",
         "--haskell-suite","-w","haskell-declarations",
         packagequalifier]) >> return ()
 
-forPackages :: Index -> (PackageName -> VersionNumber -> IO a) -> IO (Map PackageName [a])
+forPackages :: Index a -> (PackageName -> PackageVersion -> a -> IO b) -> IO (Index b)
 forPackages packages action = do
-    flip Map.traverseWithKey packages (\packagename versionnumbers -> do
-        forM versionnumbers (\versionnumber -> action packagename versionnumber))
+    flip Map.traverseWithKey packages (\packagename packageversions -> do
+        flip Map.traverseWithKey packageversions (\packageversion packageinformation -> do
+            action packagename packageversion packageinformation))
 
 type PackageName   = String
-type VersionNumber = Version
-type Index = Map PackageName [VersionNumber]
+type PackageVersion = Version
+type DependencyName = PackageName
+type DependencyVersion = PackageVersion
+data Dependency = Dependency DependencyName DependencyVersion
+type Index a = Map PackageName (Map PackageVersion a)
 
-availablePackagesOnHackage :: IO Index
+availablePackagesOnHackage :: IO (Index GenericPackageDescription)
 availablePackagesOnHackage = do
     putStrLn "Downloading Index ..."
     exists <- doesFileExist "data/index.tar"
@@ -59,10 +66,15 @@ availablePackagesOnHackage = do
             "-O","data/index.tar.gz",
             "hackage.haskell.org/packages/index.tar.gz"])
         rawSystem "gunzip" ["-f","data/index.tar.gz"]))
-    hackage <- readHackage' "data/index.tar"
-    return (Map.map Map.keys hackage)
+    readHackage' "data/index.tar"
 
-pruneIndex :: [PackageName] -> Index -> Index
+packageDependencies :: GenericPackageDescription -> [Dependency]
+packageDependencies = undefined
+
+saveDependencies :: Index [Dependency] -> IO ()
+saveDependencies = undefined
+
+pruneIndex :: [PackageName] -> Index a -> Index a
 pruneIndex packagenames = Map.filterWithKey (\key _ -> key `elem` packagenames)
 
 fewPackages :: [PackageName]
