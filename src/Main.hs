@@ -1,11 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Data.Version (showVersion,Version)
+import Data.Version (showVersion,Version(Version))
 
 import Distribution.Hackage.DB (readHackage')
 
-import Distribution.PackageDescription (GenericPackageDescription)
+import Distribution.PackageDescription (
+    GenericPackageDescription,PackageDescription,FlagAssignment,
+    library,libModules,libBuildInfo,hsSourceDirs,
+    targetBuildDepends,buildDepends)
+import Distribution.PackageDescription.Configuration (finalizePackageDescription)
+import Distribution.System (Platform(Platform),Arch(I386),OS(Linux))
+import Distribution.Compiler (CompilerId(CompilerId),CompilerFlavor(GHC))
+import qualified Distribution.Package as Cabal (Dependency)
 
 import Data.Aeson (ToJSON(toJSON),object,(.=),encode)
 import Distribution.Text (display)
@@ -20,13 +27,14 @@ import Control.Applicative (Applicative)
 import Data.Map (Map)
 import qualified Data.Map as Map (
     map,keys,filterWithKey,traverseWithKey,toList)
+import Data.List (nub)
 
 
 main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
     let packages = pruneIndex fewPackages allpackages
-    saveDependencies (Map.map (Map.map packageDependencies) packages)
+    saveDependencies (resolveDependencyRanges (Map.map (Map.map packageDependencyRanges) packages))
     resolveNames packages
     extractDeclarations packages
 
@@ -61,6 +69,7 @@ type DependencyName = PackageName
 type DependencyVersion = PackageVersion
 data Dependency = Dependency DependencyName DependencyVersion
 type Index a = Map PackageName (Map PackageVersion a)
+type DependencyRange = Cabal.Dependency
 
 availablePackagesOnHackage :: IO (Index GenericPackageDescription)
 availablePackagesOnHackage = do
@@ -75,8 +84,28 @@ availablePackagesOnHackage = do
         rawSystem "gunzip" ["-f","data/index.tar.gz"]))
     readHackage' "data/index.tar"
 
-packageDependencies :: GenericPackageDescription -> [Dependency]
-packageDependencies = undefined
+packageDependencyRanges :: GenericPackageDescription -> [DependencyRange]
+packageDependencyRanges genericpackagedescription = do
+    case simpleConfigure genericpackagedescription of
+        Left _ -> []
+        Right (packagedescription,_) -> do
+            case library packagedescription of
+                Nothing -> []
+                Just librarysection -> nub (
+                    targetBuildDepends (libBuildInfo librarysection) ++
+                    buildDepends packagedescription)
+
+resolveDependencyRanges :: Index [DependencyRange] -> Index [Dependency]
+resolveDependencyRanges = undefined
+
+defaultPlatform :: Platform
+defaultPlatform = Platform I386 Linux
+
+defaultCompiler :: CompilerId
+defaultCompiler = CompilerId GHC (Version [7,6,3] [])
+
+simpleConfigure :: GenericPackageDescription -> Either [DependencyRange] (PackageDescription,FlagAssignment)
+simpleConfigure = finalizePackageDescription [] (const True) defaultPlatform defaultCompiler []
 
 saveDependencies :: Index [Dependency] -> IO ()
 saveDependencies = ByteString.writeFile "packageinfo" . encode . flattenIndex
