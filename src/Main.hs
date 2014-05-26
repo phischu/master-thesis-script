@@ -35,7 +35,7 @@ main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
     let packages = pruneIndex fewPackages allpackages
-    saveDependencies (resolveDependencyRanges (Map.map (Map.map packageDependencyRanges) packages))
+    saveDependencies (resolveDependencyRanges allpackages (Map.map (Map.map packageDependencyRanges) packages))
     resolveNames packages
     extractDeclarations packages
 
@@ -96,8 +96,8 @@ packageDependencyRanges genericpackagedescription = do
                     targetBuildDepends (libBuildInfo librarysection) ++
                     buildDepends packagedescription)
 
-resolveDependencyRanges :: Index [DependencyRange] -> Index [Dependency]
-resolveDependencyRanges packages = Map.map (Map.map (concatMap (allDependenciesInRange packages))) packages
+resolveDependencyRanges :: Index a -> Index [DependencyRange] -> Index [Dependency]
+resolveDependencyRanges allpackages packages = Map.map (Map.map (concatMap (allDependenciesInRange allpackages))) packages
 
 allDependenciesInRange :: Index a -> DependencyRange -> [Dependency]
 allDependenciesInRange packages (Cabal.Dependency dependencyname versionrange) = do
