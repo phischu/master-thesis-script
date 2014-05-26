@@ -7,17 +7,19 @@ import Distribution.Hackage.DB (readHackage')
 
 import Distribution.PackageDescription (GenericPackageDescription)
 
-import Data.Aeson (ToJSON(toJSON),object,(.=))
+import Data.Aeson (ToJSON(toJSON),object,(.=),encode)
 import Distribution.Text (display)
+import qualified Data.ByteString.Lazy as ByteString (writeFile)
 
 import System.Directory (
     doesFileExist,createDirectoryIfMissing)
 import System.Process (rawSystem)
 
 import Control.Monad (when,forM,void)
+import Control.Applicative (Applicative)
 import Data.Map (Map)
 import qualified Data.Map as Map (
-    map,keys,filterWithKey,traverseWithKey)
+    map,keys,filterWithKey,traverseWithKey,toList)
 
 
 main :: IO ()
@@ -46,7 +48,7 @@ extractDeclarations packages = forPackages packages (\packagename packageversion
         "--haskell-suite","-w","haskell-declarations",
         packagequalifier]) >> return ()
 
-forPackages :: Index a -> (PackageName -> PackageVersion -> a -> IO b) -> IO (Index b)
+forPackages :: (Applicative m) => Index a -> (PackageName -> PackageVersion -> a -> m b) -> m (Index b)
 forPackages packages action = do
     flip Map.traverseWithKey packages (\packagename packageversions -> do
         flip Map.traverseWithKey packageversions (\packageversion packageinformation -> do
@@ -77,7 +79,13 @@ packageDependencies :: GenericPackageDescription -> [Dependency]
 packageDependencies = undefined
 
 saveDependencies :: Index [Dependency] -> IO ()
-saveDependencies = undefined
+saveDependencies = ByteString.writeFile "packageinfo" . encode . flattenIndex
+
+flattenIndex :: Index [Dependency] -> [Package]
+flattenIndex packages = do
+    (packagename,versions) <- Map.toList packages
+    (packageversion,dependencies) <- Map.toList versions
+    return (Package packagename packageversion dependencies)
 
 instance ToJSON Package where
     toJSON (Package packagename packageversion dependencies) = object [
