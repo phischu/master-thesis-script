@@ -86,7 +86,9 @@ instance ToJSON Package where
         "dependencies" .= dependencies]
 
 instance ToJSON Dependency where
-    toJSON _ = undefined
+    toJSON (Dependency dependencyname dependencyversion) = object [
+        "dependencyname" .= dependencyname,
+        "dependencyversion" .= display dependencyversion]
 
 pruneIndex :: [PackageName] -> Index a -> Index a
 pruneIndex packagenames = Map.filterWithKey (\key _ -> key `elem` packagenames)
