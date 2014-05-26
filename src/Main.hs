@@ -12,7 +12,8 @@ import Distribution.PackageDescription (
 import Distribution.PackageDescription.Configuration (finalizePackageDescription)
 import Distribution.System (Platform(Platform),Arch(I386),OS(Linux))
 import Distribution.Compiler (CompilerId(CompilerId),CompilerFlavor(GHC))
-import qualified Distribution.Package as Cabal (Dependency)
+import qualified Distribution.Package as Cabal (Dependency(Dependency))
+import Distribution.Version (withinRange)
 
 import Data.Aeson (ToJSON(toJSON),object,(.=),encode)
 import Distribution.Text (display)
@@ -22,7 +23,7 @@ import System.Directory (
     doesFileExist,createDirectoryIfMissing)
 import System.Process (rawSystem)
 
-import Control.Monad (when,forM,void)
+import Control.Monad (when,forM,void,guard)
 import Control.Applicative (Applicative)
 import Data.Map (Map)
 import qualified Data.Map as Map (
@@ -96,7 +97,15 @@ packageDependencyRanges genericpackagedescription = do
                     buildDepends packagedescription)
 
 resolveDependencyRanges :: Index [DependencyRange] -> Index [Dependency]
-resolveDependencyRanges = undefined
+resolveDependencyRanges packages = Map.map (Map.map (concatMap (allDependenciesInRange packages))) packages
+
+allDependenciesInRange :: Index a -> DependencyRange -> [Dependency]
+allDependenciesInRange packages (Cabal.Dependency dependencyname versionrange) = do
+    (packagename,versions) <- Map.toList packages
+    guard (packagename == display dependencyname)
+    (packageversion,_) <- Map.toList versions
+    guard (withinRange packageversion versionrange)
+    return (Dependency packagename packageversion)
 
 defaultPlatform :: Platform
 defaultPlatform = Platform I386 Linux
