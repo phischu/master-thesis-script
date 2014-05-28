@@ -34,19 +34,9 @@ import Data.List (nub)
 main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
-    let packages = pruneIndex fewPackages allpackages
+    let packages = pruneIndex manyReverseDependenciesPackages allpackages
     saveDependencies (resolveDependencyRanges allpackages (Map.map (Map.map packageDependencyRanges) packages))
-    resolveNames packages
     extractDeclarations packages
-
-resolveNames :: Index a -> IO ()
-resolveNames packages = forPackages packages (\packagename packageversion _ -> do
-    let packagequalifier = packagename ++ "-" ++ showVersion packageversion
-    rawSystem "cabal" [
-        "install","--reinstall","--force-reinstalls",
-        "--user","--gcc-option=-I/usr/lib/ghc/include",
-        "--haskell-suite","-w","hs-gen-iface",
-        packagequalifier]) >> return ()
 
 extractDeclarations :: Index a -> IO ()
 extractDeclarations packages = forPackages packages (\packagename packageversion _ -> do
