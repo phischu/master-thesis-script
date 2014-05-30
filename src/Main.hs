@@ -67,15 +67,14 @@ type DependencyRange = Cabal.Dependency
 availablePackagesOnHackage :: IO (Index GenericPackageDescription)
 availablePackagesOnHackage = do
     putStrLn "Downloading Index ..."
-    exists <- doesFileExist "data/index.tar"
+    exists <- doesFileExist "index.tar"
     when (not exists) (void (do
-        createDirectoryIfMissing True "data/"
         void (rawSystem "wget" [
             "-nv",
-            "-O","data/index.tar.gz",
+            "-O","index.tar.gz",
             "hackage.haskell.org/packages/index.tar.gz"])
-        rawSystem "gunzip" ["-f","data/index.tar.gz"]))
-    readHackage' "data/index.tar"
+        rawSystem "gunzip" ["-f","index.tar.gz"]))
+    readHackage' "index.tar"
 
 packageDependencyRanges :: GenericPackageDescription -> [DependencyRange]
 packageDependencyRanges genericpackagedescription = do
