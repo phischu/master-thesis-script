@@ -43,7 +43,9 @@ extractDeclarations packages = forPackages packages (\packagename packageversion
     let packagequalifier = packagename ++ "-" ++ showVersion packageversion
     rawSystem "cabal" [
         "install","--reinstall","--force-reinstalls",
-        "--user","--gcc-option=-I/usr/lib/ghc/include",
+        "--package-db=/home/pschuster/.haskell-packages",
+        "--prefix=/home/pschuster/Projects/symbols/",
+        "--gcc-option=-I/usr/lib/ghc/include",
         "--haskell-suite","-w","haskell-declarations",
         packagequalifier]) >> return ()
 
