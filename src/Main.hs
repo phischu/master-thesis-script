@@ -44,6 +44,7 @@ extractDeclarations packages = forPackages packages (\packagename packageversion
     rawSystem "cabal" [
         "install","--reinstall","--force-reinstalls",
         "--package-db=/home/pschuster/.haskell-packages/haskell-declarations.db",
+        "--package-db=/home/pschuster/Projects/symbols/packages.db",
         "--prefix=/home/pschuster/Projects/symbols/packages",
         "--gcc-option=-I/usr/lib/ghc/include",
         "--haskell-suite","-w","haskell-declarations",
