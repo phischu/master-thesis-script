@@ -16,7 +16,7 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 executable master-thesis-script
-  main-is:             Main.hs
+  main-is:             master-thesis-script.hs
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.6 && <4.7,
