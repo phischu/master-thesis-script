@@ -20,7 +20,7 @@ import Distribution.Text (display)
 import qualified Data.ByteString.Lazy as ByteString (writeFile)
 
 import System.Directory (
-    doesFileExist,createDirectoryIfMissing)
+    doesFileExist,createDirectoryIfMissing,doesDirectoryExist)
 import System.Process (rawSystem)
 
 import Control.Monad (when,forM,void,guard)
@@ -39,16 +39,24 @@ main = do
     extractDeclarations packages
 
 extractDeclarations :: Index a -> IO ()
-extractDeclarations packages = forPackages packages (\packagename packageversion _ -> do
-    let packagequalifier = packagename ++ "-" ++ showVersion packageversion
-    rawSystem "cabal" [
-        "install","--reinstall","--force-reinstalls",
-        "--package-db=/home/pschuster/.haskell-packages/haskell-declarations.db",
-        "--package-db=/home/pschuster/Projects/symbols/packages.db",
-        "--prefix=/home/pschuster/Projects/symbols/packages",
-        "--gcc-option=-I/usr/lib/ghc/include",
-        "--haskell-suite","-w","haskell-declarations",
-        packagequalifier]) >> return ()
+extractDeclarations packages = do
+    forPackages packages (\packagename packageversion _ -> do
+        let packagequalifier = packagename ++ "-" ++ showVersion packageversion
+        exists <- doesDirectoryExist ("/home/pschuster/Projects/symbols/packages/lib/x86_64-linux-haskell-declarations-0.1/" ++ packagequalifier)
+        if exists
+            then do
+                putStrLn (packagequalifier ++ " already there!")
+            else do
+                rawSystem "cabal" [
+                    "install","--force-reinstalls",
+                    "--package-db=/home/pschuster/.haskell-packages/haskell-declarations.db",
+                    "--package-db=/home/pschuster/Projects/symbols/packages.db",
+                    "--prefix=/home/pschuster/Projects/symbols/packages",
+                    "--gcc-option=-I/usr/lib/ghc/include",
+                    "--haskell-suite","-w","haskell-declarations",
+                    packagequalifier]
+                return ())
+    return ()
 
 forPackages :: (Applicative m) => Index a -> (PackageName -> PackageVersion -> a -> m b) -> m (Index b)
 forPackages packages action = do
