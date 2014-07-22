@@ -7,7 +7,7 @@ import Distribution.Hackage.DB (readHackage')
 
 import Distribution.PackageDescription (
     GenericPackageDescription,PackageDescription,FlagAssignment,
-    library,libModules,libBuildInfo,hsSourceDirs,
+    library,libBuildInfo,
     targetBuildDepends,buildDepends)
 import Distribution.PackageDescription.Configuration (finalizePackageDescription)
 import Distribution.System (Platform(Platform),Arch(I386),OS(Linux))
@@ -20,14 +20,14 @@ import Distribution.Text (display)
 import qualified Data.ByteString.Lazy as ByteString (writeFile)
 
 import System.Directory (
-    doesFileExist,createDirectoryIfMissing,doesDirectoryExist)
+    doesFileExist,doesDirectoryExist)
 import System.Process (rawSystem)
 
-import Control.Monad (when,forM,void,guard)
+import Control.Monad (when,void,guard)
 import Control.Applicative (Applicative)
 import Data.Map (Map)
 import qualified Data.Map as Map (
-    map,keys,filterWithKey,traverseWithKey,toList)
+    map,filterWithKey,traverseWithKey,toList)
 import Data.List (nub)
 
 
@@ -64,7 +64,7 @@ forPackages packages action = do
         flip Map.traverseWithKey packageversions (\packageversion packageinformation -> do
             action packagename packageversion packageinformation))
 
-data Package = Package PackageName PackageVersion [Dependency]
+data Package = Package PackageName PackageVersion [Dependency] (Maybe PackageVersion)
 type PackageName   = String
 type PackageVersion = Version
 type DependencyName = PackageName
@@ -122,14 +122,17 @@ saveDependencies = ByteString.writeFile "packageinfo" . encode . flattenIndex
 flattenIndex :: Index [Dependency] -> [Package]
 flattenIndex packages = do
     (packagename,versions) <- Map.toList packages
-    (packageversion,dependencies) <- Map.toList versions
-    return (Package packagename packageversion dependencies)
+    let versionlist = Map.toList versions
+        nextversionlist = map (Just . fst) (drop 1 versionlist) ++ [Nothing]
+    ((packageversion,dependencies),nextversion) <- zip versionlist nextversionlist
+    return (Package packagename packageversion dependencies nextversion)
 
 instance ToJSON Package where
-    toJSON (Package packagename packageversion dependencies) = object [
+    toJSON (Package packagename packageversion dependencies nextversion) = object [
         "packagename" .= packagename,
         "packageversion" .= display packageversion,
-        "dependencies" .= dependencies]
+        "dependencies" .= dependencies,
+        "nextversion" .= fmap display nextversion]
 
 instance ToJSON Dependency where
     toJSON (Dependency dependencyname dependencyversion) = object [
