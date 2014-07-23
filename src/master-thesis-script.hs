@@ -27,14 +27,14 @@ import Control.Monad (when,void,guard)
 import Control.Applicative (Applicative)
 import Data.Map (Map)
 import qualified Data.Map as Map (
-    map,filterWithKey,traverseWithKey,toList)
+    map,filterWithKey,traverseWithKey,toList,lookup)
 import Data.List (nub)
 
 
 main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
-    let packages = pruneIndex manyReverseDependenciesPackages allpackages
+    let packages = pruneIndex packagesOnStackage allpackages
     saveDependencies (resolveDependencyRanges allpackages (Map.map (Map.map packageDependencyRanges) packages))
     extractDeclarations packages
 
@@ -101,8 +101,8 @@ resolveDependencyRanges allpackages packages = Map.map (Map.map (concatMap (allD
 
 allDependenciesInRange :: Index a -> DependencyRange -> [Dependency]
 allDependenciesInRange packages (Cabal.Dependency dependencyname versionrange) = do
-    (packagename,versions) <- Map.toList packages
-    guard (packagename == display dependencyname)
+    let packagename = display dependencyname
+    versions <- maybe [] (:[]) (Map.lookup packagename packages)
     (packageversion,_) <- Map.toList versions
     guard (withinRange packageversion versionrange)
     return (Dependency packagename packageversion)
@@ -143,7 +143,7 @@ pruneIndex :: [PackageName] -> Index a -> Index a
 pruneIndex packagenames = Map.filterWithKey (\key _ -> key `elem` packagenames)
 
 fewPackages :: [PackageName]
-fewPackages = ["containers"]
+fewPackages = ["network"]
 
 packagesThatMightComeWithGHC :: [PackageName]
 packagesThatMightComeWithGHC = [
