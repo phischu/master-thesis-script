@@ -15,8 +15,8 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-executable master-thesis-script
-  main-is:             master-thesis-script.hs
+executable extract-declarations
+  main-is:             extract-declarations.hs
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.6 && <4.7,
@@ -29,3 +29,11 @@ executable master-thesis-script
                        bytestring >=0.10.0.2 && < 0.11
   hs-source-dirs:      src
   default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+
+executable build-bot
+  main-is:             build-bot.hs
+  build-depends:       base >=4.6 && <4.7
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
