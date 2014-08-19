@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Data.Version (showVersion,Version(Version))
+import Data.Version (showVersion,Version(Version),versionBranch)
 
 import Distribution.Hackage.DB (readHackage')
 
@@ -29,12 +29,13 @@ import Data.Map (Map)
 import qualified Data.Map as Map (
     map,filterWithKey,traverseWithKey,toList,lookup)
 import Data.List (nub)
+import Data.Function (on)
 
 
 main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
-    let packages = pruneIndex packagesOnStackage allpackages
+    let packages = pruneIndex fewPackages allpackages
     saveDependencies (resolveDependencyRanges allpackages (Map.map (Map.map packageDependencyRanges) packages))
     extractDeclarations packages
 
@@ -64,9 +65,11 @@ forPackages packages action = do
         flip Map.traverseWithKey packageversions (\packageversion packageinformation -> do
             action packagename packageversion packageinformation))
 
-data Package = Package PackageName PackageVersion [Dependency] (Maybe PackageVersion)
+data Package = Package PackageName PackageVersion [Dependency] (Maybe NextVersion)
 type PackageName   = String
 type PackageVersion = Version
+data NextVersion = NextVersion Change PackageVersion
+data Change = Minor | Major
 type DependencyName = PackageName
 type DependencyVersion = PackageVersion
 data Dependency = Dependency DependencyName DependencyVersion
@@ -124,7 +127,11 @@ flattenIndex packages = do
     (packagename,versions) <- Map.toList packages
     let versionlist = Map.toList versions
         nextversionlist = map (Just . fst) (drop 1 versionlist) ++ [Nothing]
-    ((packageversion,dependencies),nextversion) <- zip versionlist nextversionlist
+    ((packageversion,dependencies),maybenextversion) <- zip versionlist nextversionlist
+    let nextversion = fmap (\x -> NextVersion (change packageversion x) x) maybenextversion
+        change v1 v2 = if ((==) `on` take 2 . versionBranch) v1 v2
+            then Minor
+            else Major
     return (Package packagename packageversion dependencies nextversion)
 
 instance ToJSON Package where
@@ -132,12 +139,21 @@ instance ToJSON Package where
         "packagename" .= packagename,
         "packageversion" .= display packageversion,
         "dependencies" .= dependencies,
-        "nextversion" .= fmap display nextversion]
+        "nextversion" .= nextversion]
 
 instance ToJSON Dependency where
     toJSON (Dependency dependencyname dependencyversion) = object [
         "dependencyname" .= dependencyname,
         "dependencyversion" .= display dependencyversion]
+
+instance ToJSON NextVersion where
+    toJSON (NextVersion change packageversion) = object [
+        "change" .= change,
+        "nextversion" .= display packageversion]
+
+instance ToJSON Change where
+    toJSON Minor = "minor"
+    toJSON Major = "major"
 
 pruneIndex :: [PackageName] -> Index a -> Index a
 pruneIndex packagenames = Map.filterWithKey (\key _ -> key `elem` packagenames)

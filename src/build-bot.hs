@@ -33,13 +33,23 @@ instance FromJSON Update where
 
 main :: IO ()
 main = do
-    Just updates <- ByteString.readFile "updates.json" >>= return . decode :: IO (Maybe [Update])
+    Just updates <- ByteString.readFile "updates.json" >>= return . decode
     forM_ updates (\update -> do
         rawSystem "cabal" ["sandbox","delete"]
         rawSystem "cabal" ["sandbox","init"]
-        exitcode <- rawSystem "cabal" ["install",packagename update ++ "-" ++ packageversion update]
-        print exitcode
+        exitcodedependency1 <- rawSystem "cabal" [
+            "install",
+            "--allow-newer="++dependencyname1 update,
+            "--constraint=\""++dependencyname1 update++"=="++dependencyversion1 update++"\"",
+            packagename update ++ "-" ++ packageversion update]
         rawSystem "cabal" ["sandbox","delete"]
-        return exitcode)
+        rawSystem "cabal" ["sandbox","init"]
+        exitcodedependency2 <- rawSystem "cabal" [
+            "install",
+            "--allow-newer="++dependencyname2 update,
+            "--constraint=\""++dependencyname2 update++"=="++dependencyversion2 update++"\"",
+            packagename update ++ "-" ++ packageversion update]
+        rawSystem "cabal" ["sandbox","delete"]
+        return (update,exitcodedependency1,exitcodedependency2))
 
 
