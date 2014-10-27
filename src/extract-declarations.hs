@@ -23,11 +23,13 @@ import System.Directory (
     doesFileExist,doesDirectoryExist)
 import System.Process (rawSystem)
 
-import Control.Monad (when,void,guard)
-import Control.Applicative (Applicative)
+import System.Random.Shuffle (shuffle')
+import System.Random (mkStdGen)
+
+import Control.Monad (when,void,guard,forM_)
 import Data.Map (Map)
 import qualified Data.Map as Map (
-    map,filterWithKey,traverseWithKey,toList,lookup)
+    map,filterWithKey,toList,lookup)
 import Data.List (nub)
 import Data.Function (on)
 
@@ -35,7 +37,7 @@ import Data.Function (on)
 main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
-    let packages = pruneIndex fewPackages allpackages
+    let packages = pruneIndex packagesOnStackage allpackages
     saveDependencies (resolveDependencyRanges allpackages (Map.map (Map.map packageDependencyRanges) packages))
     extractDeclarations packages
 
@@ -57,13 +59,20 @@ extractDeclarations packages = do
                     "--haskell-suite","-w","haskell-declarations",
                     packagequalifier]
                 return ())
-    return ()
 
-forPackages :: (Applicative m) => Index a -> (PackageName -> PackageVersion -> a -> m b) -> m (Index b)
+forPackages :: (Monad m) => Index a -> (PackageName -> PackageVersion -> a -> m ()) -> m ()
 forPackages packages action = do
-    flip Map.traverseWithKey packages (\packagename packageversions -> do
-        flip Map.traverseWithKey packageversions (\packageversion packageinformation -> do
-            action packagename packageversion packageinformation))
+    forM_ (shuffleList (indexList packages)) (\(packagename,packageversion,packageinformation) -> do
+        action packagename packageversion packageinformation)
+
+shuffleList :: [a] -> [a]
+shuffleList list = shuffle' list (length list) (mkStdGen 4)
+
+indexList :: Index a -> [(PackageName,PackageVersion,a)]
+indexList packages = do
+    (packagename,packageversions) <- Map.toList packages
+    (packageversion,packageinformation) <- Map.toList packageversions
+    return (packagename,packageversion,packageinformation)
 
 data Package = Package PackageName PackageVersion [Dependency] (Maybe NextVersion)
 type PackageName   = String
