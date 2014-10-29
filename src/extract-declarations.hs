@@ -39,11 +39,11 @@ main = do
     allpackages <- availablePackagesOnHackage
     let packages = pruneIndex packagesOnStackage allpackages
     saveDependencies (resolveDependencyRanges allpackages (Map.map (Map.map packageDependencyRanges) packages))
-    extractDeclarations packages
+    extractDeclarations (take 10 (shuffleList (indexList allpackages)))
 
-extractDeclarations :: Index a -> IO ()
+extractDeclarations :: [(PackageName,PackageVersion)] -> IO ()
 extractDeclarations packages = do
-    forPackages packages (\packagename packageversion _ -> do
+    forM_ packages (\(packagename,packageversion) -> do
         let packagequalifier = packagename ++ "-" ++ showVersion packageversion
         exists <- doesDirectoryExist ("/home/pschuster/Projects/symbols/packages/lib/x86_64-linux-haskell-declarations-0.1/" ++ packagequalifier)
         if exists
@@ -60,19 +60,14 @@ extractDeclarations packages = do
                     packagequalifier]
                 return ())
 
-forPackages :: (Monad m) => Index a -> (PackageName -> PackageVersion -> a -> m ()) -> m ()
-forPackages packages action = do
-    forM_ (shuffleList (indexList packages)) (\(packagename,packageversion,packageinformation) -> do
-        action packagename packageversion packageinformation)
-
 shuffleList :: [a] -> [a]
 shuffleList list = shuffle' list (length list) (mkStdGen 4)
 
-indexList :: Index a -> [(PackageName,PackageVersion,a)]
+indexList :: Index a -> [(PackageName,PackageVersion)]
 indexList packages = do
     (packagename,packageversions) <- Map.toList packages
-    (packageversion,packageinformation) <- Map.toList packageversions
-    return (packagename,packageversion,packageinformation)
+    (packageversion,_) <- Map.toList packageversions
+    return (packagename,packageversion)
 
 data Package = Package PackageName PackageVersion [Dependency] (Maybe NextVersion)
 type PackageName   = String
