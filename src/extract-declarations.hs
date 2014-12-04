@@ -29,45 +29,68 @@ import System.Random (mkStdGen)
 import Control.Monad (when,void,guard,forM_)
 import Data.Map (Map)
 import qualified Data.Map as Map (
-    map,filterWithKey,toList,lookup)
+    map,filterWithKey,toList,lookup,keys,fromList,union,elems)
 import Data.List (nub)
 import Data.Function (on)
+import Data.Maybe (fromJust,maybeToList)
 
 
 main :: IO ()
 main = do
     allpackages <- availablePackagesOnHackage
-    let packages = pruneIndex packagesOnStackage allpackages
-    saveDependencies (resolveDependencyRanges allpackages (Map.map (Map.map packageDependencyRanges) packages))
-    extractDeclarations (take 10 (shuffleList (indexList allpackages)))
+    let selectedPackages = selectPackages 10 (Map.map (Map.map packageDependencyRanges) allpackages)        
+    saveDependencies (resolveDependencyRanges allpackages selectedPackages)
+    extractDeclarations selectedPackages
 
-extractDeclarations :: [(PackageName,PackageVersion)] -> IO ()
+extractDeclarations :: Index a -> IO ()
 extractDeclarations packages = do
-    forM_ packages (\(packagename,packageversion) -> do
-        let packagequalifier = packagename ++ "-" ++ showVersion packageversion
-        exists <- doesDirectoryExist ("/home/pschuster/Projects/symbols/packages/lib/x86_64-linux-haskell-declarations-0.1/" ++ packagequalifier)
-        if exists
-            then do
-                putStrLn (packagequalifier ++ " already there!")
-            else do
-                rawSystem "cabal" [
-                    "install","--force-reinstalls",
-                    "--package-db=/home/pschuster/.haskell-packages/haskell-declarations.db",
-                    "--package-db=/home/pschuster/Projects/symbols/packages.db",
-                    "--prefix=/home/pschuster/Projects/symbols/packages",
-                    "--gcc-option=-I/usr/lib/ghc/include",
-                    "--haskell-suite","-w","haskell-declarations",
-                    packagequalifier]
-                return ())
+    forM_ (Map.toList packages) (\(packagename,packageversions) -> do
+        forM_ (Map.keys packageversions) (\packageversion -> do
+            let packagequalifier = packagename ++ "-" ++ showVersion packageversion
+            exists <- doesDirectoryExist ("/home/pschuster/Projects/symbols/packages/lib/x86_64-linux-haskell-declarations-0.1/" ++ packagequalifier)
+            if exists
+                then do
+                    putStrLn (packagequalifier ++ " already there!")
+                else do
+                    rawSystem "cabal" [
+                        "install","--force-reinstalls",
+                        "--package-db=/home/pschuster/.haskell-packages/haskell-declarations.db",
+                        "--package-db=/home/pschuster/Projects/symbols/packages.db",
+                        "--prefix=/home/pschuster/Projects/symbols/packages",
+                        "--gcc-option=-I/usr/lib/ghc/include",
+                        "--haskell-suite","-w","haskell-declarations",
+                        packagequalifier]
+                    return ()))
 
 shuffleList :: [a] -> [a]
-shuffleList list = shuffle' list (length list) (mkStdGen 4)
+shuffleList list = shuffle' list (length list) (mkStdGen 1543423)
 
 indexList :: Index a -> [(PackageName,PackageVersion)]
 indexList packages = do
     (packagename,packageversions) <- Map.toList packages
     (packageversion,_) <- Map.toList packageversions
     return (packagename,packageversion)
+
+selectPackages :: Int -> Index [DependencyRange] -> Index [DependencyRange]
+selectPackages n allPackages = dependencyClosure allPackages (randomPackages n allPackages)
+
+randomPackages :: Int -> Index a -> Index a
+randomPackages n packages = Map.fromList (do
+    packagename <- take n (shuffleList (Map.keys packages))
+    let packageversions = fromJust (Map.lookup packagename packages)
+    return (packagename,packageversions))
+
+dependencyClosure :: Index [DependencyRange] -> Index [DependencyRange] -> Index [DependencyRange]
+dependencyClosure allPackages selectedPackages =
+    if selectedPackages == nextPackages
+        then selectedPackages
+        else dependencyClosure allPackages nextPackages where
+            nextPackages = Map.union selectedPackages dependencies
+            dependencies = Map.fromList (do
+                Cabal.Dependency dependencyCabalName _ <- concat (concat (Map.elems (Map.map Map.elems selectedPackages)))
+                let dependencyName = display dependencyCabalName
+                dependencyVersions <- maybeToList (Map.lookup dependencyName allPackages)
+                return (dependencyName,dependencyVersions))
 
 data Package = Package PackageName PackageVersion [Dependency] (Maybe NextVersion)
 type PackageName   = String
